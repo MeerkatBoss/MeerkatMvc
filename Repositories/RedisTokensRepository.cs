@@ -12,22 +12,22 @@ public class RedisTokensRepository : ITokensRepository
         _database = client;
     }
 
-    public Task<UserTokensModel> AddTokensAsync(UserTokensModel model)
+    public Task<UserTokensModel> AddTokensAsync(string sessionId, UserTokensModel model)
     {
         throw new NotImplementedException();
     }
 
-    public Task<UserTokensModel> GetTokensAsync(string id)
+    public Task<UserTokensModel> GetTokensAsync(string sessionId)
     {
         throw new NotImplementedException();
     }
 
-    public Task<UserTokensModel> UpdateTokensAsync(UserTokensModel model)
+    public Task<UserTokensModel> UpdateTokensAsync(string sessionId, UserTokensModel model)
     {
         throw new NotImplementedException();
     }
 
-    public Task DeleteTokensAsync(string id)
+    public Task DeleteTokensAsync(string sessionId)
     {
         throw new NotImplementedException();
     }
