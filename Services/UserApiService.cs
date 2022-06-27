@@ -34,7 +34,7 @@ public class UserApiService : IUserApiService
         throw new NotImplementedException();
     }
 
-    public Task DeleteUser(string id)
+    public Task DeleteUser(string id, DeleteModel model)
     {
         throw new NotImplementedException();
     }

@@ -12,6 +12,6 @@ public interface IUserApiService
 
     Task<ProblemModel<UserModel>> UpdateUser(string id, UpdateModel model);
 
-    Task DeleteUser(string id);
+    Task DeleteUser(string id, DeleteModel model);
 
 }
