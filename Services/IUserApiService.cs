@@ -12,6 +12,6 @@ public interface IUserApiService
 
     Task<ProblemModel<UserModel>> UpdateUserAsync(string sessionId, UpdateModel model);
 
-    Task DeleteUserAsync(string sessionId, DeleteModel model);
+    Task<ProblemModel> DeleteUserAsync(string sessionId, DeleteModel model);
 
 }

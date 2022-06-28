@@ -59,7 +59,7 @@ public class UserApiService : IUserApiService
         return result!;
     }
 
-    public async Task DeleteUserAsync(string sessionId, DeleteModel model)
+    public async Task<ProblemModel> DeleteUserAsync(string sessionId, DeleteModel model)
     {
         (string accessToken, string refreshToken) = await _database.GetTokensAsync(sessionId);
         HttpResponseMessage response;
@@ -68,7 +68,7 @@ public class UserApiService : IUserApiService
         request.Content = JsonContent.Create(model);
         response = await _client.SendAsync(request);
         await _database.DeleteTokensAsync(sessionId);
+        return new();
     }
-
 
 }
