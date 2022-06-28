@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using MeerkatMvc.Models;
 using MeerkatMvc.Repositories;
 using MeerkatMvc.Services;
@@ -167,7 +168,7 @@ public class UserApiServiceTests
             Assert.NotNull(sent);
             Assert.AreEqual(HttpMethod.Get, sent.Method);
             Assert.AreEqual(new Uri(_baseAddress), sent.RequestUri);
-            Assert.AreEqual($"Bearer: {jwt}", sent.Headers.Authorization);
+            Assert.AreEqual(new AuthenticationHeaderValue("Bearer", jwt), sent.Headers.Authorization);
         }
 
     }
@@ -213,10 +214,10 @@ public class UserApiServiceTests
             Assert.NotNull(sent);
             Assert.AreEqual(HttpMethod.Put, sent.Method);
             Assert.AreEqual(new Uri(_baseAddress), sent.RequestUri);
-            Assert.AreEqual($"Bearer: {jwt}", sent.Headers.Authorization);
+            Assert.AreEqual(new AuthenticationHeaderValue("Bearer", jwt), sent.Headers.Authorization);
             JsonContent? json = sent.Content as JsonContent;
             Assert.NotNull(json);
-            SignUpModel? sentModel = await json!.ReadFromJsonAsync<SignUpModel>();
+            UpdateModel? sentModel = await json!.ReadFromJsonAsync<UpdateModel>();
             Assert.NotNull(sentModel);
             Assert.AreEqual(updateModel, sentModel);
         }
@@ -258,10 +259,10 @@ public class UserApiServiceTests
             Assert.NotNull(sent);
             Assert.AreEqual(HttpMethod.Delete, sent.Method);
             Assert.AreEqual(new Uri(_baseAddress), sent.RequestUri);
-            Assert.AreEqual($"Bearer: {jwt}", sent.Headers.Authorization);
+            Assert.AreEqual(new AuthenticationHeaderValue("Bearer", jwt), sent.Headers.Authorization);
             JsonContent? json = sent.Content as JsonContent;
             Assert.NotNull(json);
-            SignUpModel? sentModel = await json!.ReadFromJsonAsync<SignUpModel>();
+            DeleteModel? sentModel = await json!.ReadFromJsonAsync<DeleteModel>();
             Assert.NotNull(sentModel);
             Assert.AreEqual(deleteModel, sentModel);
             _repositoryMock.Verify(x => x.DeleteTokensAsync(sessionId), Times.Once());
