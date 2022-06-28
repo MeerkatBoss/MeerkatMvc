@@ -25,7 +25,15 @@ public class ProblemModel<T> where T : class
         Errors.Add("Detail", new[] { detailMessage });
     }
 
+    private ProblemModel(IDictionary<string, string[]> errors)
+    {
+        Model = null;
+        Errors = errors;
+    }
+
     public static implicit operator ProblemModel<T>(T model) => new (model);
+
+    public static implicit operator ProblemModel<T>(ProblemModel problem) => new(problem.Errors);
 
 }
 

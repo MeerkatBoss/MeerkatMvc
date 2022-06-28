@@ -1,3 +1,4 @@
+using System.Net;
 using MeerkatMvc.Models;
 using MeerkatMvc.Repositories;
 
@@ -7,6 +8,10 @@ public class UserApiService : IUserApiService
 {
     private readonly HttpClient _client;
     private readonly ITokensRepository _database;
+    private const string SERVER_ERROR = "Something went wrong. Try again later.";
+    private const string LOGIN_FAILED = "Wrong username or password.";
+    private const string WRONG_PASSWORD = "Wrong password.";
+    private const string NOT_FOUND = "User does not exist.";
 
     public UserApiService(HttpClient client, ITokensRepository database)
     {
@@ -18,11 +23,19 @@ public class UserApiService : IUserApiService
     {
         HttpResponseMessage response = await _client.PostAsJsonAsync("sign_up", user);
         var json = response.Content as JsonContent;
-        LoginResultModel? result = await json!.ReadFromJsonAsync<LoginResultModel>();
-        await _database.AddTokensAsync(
-                sessionId,
-                new UserTokensModel(result!.AccessToken, result!.RefreshToken));
-        return result!.User;
+        if (response.IsSuccessStatusCode)
+        {
+            LoginResultModel? result = await json!.ReadFromJsonAsync<LoginResultModel>();
+            await _database.AddTokensAsync(
+                    sessionId,
+                    new UserTokensModel(result!.AccessToken, result!.RefreshToken));
+            return result!.User;
+        }
+        return response.StatusCode switch
+        {
+            HttpStatusCode.BadRequest => await ParseValidationProblem(json!),
+            _ => new (SERVER_ERROR)
+        };
     }
 
     public async Task<ProblemModel<UserModel>> LogInAsync(string sessionId, LoginModel credentials)
@@ -55,8 +68,19 @@ public class UserApiService : IUserApiService
         request.Content = JsonContent.Create(model);
         HttpResponseMessage response = await _client.SendAsync(request);
         var json = response.Content as JsonContent;
-        UserModel? result = await json!.ReadFromJsonAsync<UserModel>();
-        return result!;
+        if (response.IsSuccessStatusCode)
+        {
+            UserModel? result = await json!.ReadFromJsonAsync<UserModel>();
+            return result!;
+        }
+        return response.StatusCode switch
+        {
+            HttpStatusCode.BadRequest => await ParseValidationProblem(json!),
+            HttpStatusCode.Unauthorized => new (WRONG_PASSWORD),
+            HttpStatusCode.NotFound => new (NOT_FOUND),
+            _ => new (SERVER_ERROR)
+        };
+
     }
 
     public async Task<ProblemModel> DeleteUserAsync(string sessionId, DeleteModel model)
@@ -69,6 +93,12 @@ public class UserApiService : IUserApiService
         response = await _client.SendAsync(request);
         await _database.DeleteTokensAsync(sessionId);
         return new();
+    }
+
+    public async Task<ProblemModel> ParseValidationProblem(JsonContent json)
+    {
+        var problem = await json.ReadFromJsonAsync<ValidationProblemModel>();
+        return new(problem!);
     }
 
 }
