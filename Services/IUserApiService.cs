@@ -4,14 +4,14 @@ namespace MeerkatMvc.Services;
 
 public interface IUserApiService
 {
-    Task<ProblemModel<LoginResultModel>> SignUp(string sessionId, SignUpModel user);
+    Task<ProblemModel<UserModel>> SignUpAsync(string sessionId, SignUpModel user);
 
-    Task<ProblemModel<LoginResultModel>> LogIn(string sessionId, LoginModel credentials);
+    Task<ProblemModel<UserModel>> LogInAsync(string sessionId, LoginModel credentials);
 
-    Task<ProblemModel<UserModel>> GetUser(string sessionId);
+    Task<ProblemModel<UserModel>> GetUserAsync(string sessionId);
 
-    Task<ProblemModel<UserModel>> UpdateUser(string sessionId, UpdateModel model);
+    Task<ProblemModel<UserModel>> UpdateUserAsync(string sessionId, UpdateModel model);
 
-    Task DeleteUser(string sessionId, DeleteModel model);
+    Task DeleteUserAsync(string sessionId, DeleteModel model);
 
 }

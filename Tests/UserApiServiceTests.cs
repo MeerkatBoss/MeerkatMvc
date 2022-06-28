@@ -60,9 +60,9 @@ public class UserApiServiceTests
                     new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)},
                     _repositoryMock.Object);
 
-            ProblemModel<LoginResultModel> userSignUp = await userApi.SignUp(sessionId, model);
+            ProblemModel<UserModel> userSignUp = await userApi.SignUpAsync(sessionId, model);
 
-            Assert.AreEqual(result, userSignUp.Model);
+            Assert.AreEqual(result.User, userSignUp.Model);
             Assert.False(userSignUp.HasErrors);
             Assert.NotNull(sent);
             Assert.AreEqual(HttpMethod.Post, sent.Method);
@@ -110,9 +110,9 @@ public class UserApiServiceTests
                     new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)},
                     _repositoryMock.Object);
 
-            ProblemModel<LoginResultModel> userLogIn = await userApi.LogIn(sessionId, model);
+            ProblemModel<UserModel> userLogIn = await userApi.LogInAsync(sessionId, model);
 
-            Assert.AreEqual(result, userLogIn.Model);
+            Assert.AreEqual(result.User, userLogIn.Model);
             Assert.False(userLogIn.HasErrors);
             Assert.NotNull(sent);
             Assert.AreEqual(HttpMethod.Post, sent.Method);
@@ -160,7 +160,7 @@ public class UserApiServiceTests
                     new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)},
                     _repositoryMock.Object);
 
-            ProblemModel<UserModel> userGet = await userApi.GetUser(sessionId);
+            ProblemModel<UserModel> userGet = await userApi.GetUserAsync(sessionId);
 
             Assert.AreEqual(result, userGet.Model);
             Assert.False(userGet.HasErrors);
@@ -206,7 +206,7 @@ public class UserApiServiceTests
                     new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)},
                     _repositoryMock.Object);
 
-            ProblemModel<UserModel> userUpdate = await userApi.UpdateUser(sessionId, updateModel);
+            ProblemModel<UserModel> userUpdate = await userApi.UpdateUserAsync(sessionId, updateModel);
 
             Assert.AreEqual(result, userUpdate.Model);
             Assert.False(userUpdate.HasErrors);
@@ -253,7 +253,7 @@ public class UserApiServiceTests
                     new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)},
                     _repositoryMock.Object);
 
-            await userApi.DeleteUser(sessionId, deleteModel);
+            await userApi.DeleteUserAsync(sessionId, deleteModel);
 
             Assert.NotNull(sent);
             Assert.AreEqual(HttpMethod.Delete, sent.Method);

@@ -24,4 +24,7 @@ public record ProblemModel<T> where T : class
         Errors = new Dictionary<string, string[]>();
         Errors.Add("Detail", new[] { detailMessage });
     }
+
+    public static implicit operator ProblemModel<T>(T model) => new (model);
+
 }

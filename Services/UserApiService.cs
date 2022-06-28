@@ -14,27 +14,27 @@ public class UserApiService : IUserApiService
         _database = database;
     }
 
-    public Task<ProblemModel<LoginResultModel>> SignUp(string sessionId, SignUpModel user)
+    public Task<ProblemModel<UserModel>> SignUpAsync(string sessionId, SignUpModel user)
     {
         throw new NotImplementedException();
     }
 
-    public Task<ProblemModel<LoginResultModel>> LogIn(string sessionId, LoginModel credentials)
+    public Task<ProblemModel<UserModel>> LogInAsync(string sessionId, LoginModel credentials)
     {
         throw new NotImplementedException();
     }
 
-    public Task<ProblemModel<UserModel>> GetUser(string sessionId)
+    public Task<ProblemModel<UserModel>> GetUserAsync(string sessionId)
     {
         throw new NotImplementedException();
     }
 
-    public Task<ProblemModel<UserModel>> UpdateUser(string sessionId, UpdateModel model)
+    public Task<ProblemModel<UserModel>> UpdateUserAsync(string sessionId, UpdateModel model)
     {
         throw new NotImplementedException();
     }
 
-    public Task DeleteUser(string sessionId, DeleteModel model)
+    public Task DeleteUserAsync(string sessionId, DeleteModel model)
     {
         throw new NotImplementedException();
     }
