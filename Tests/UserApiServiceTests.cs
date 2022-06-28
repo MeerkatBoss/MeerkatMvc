@@ -78,6 +78,42 @@ public class UserApiServiceTests
                         Times.Once());
         }
 
+        [Test]
+        public async Task TestSignUpBadRequest()
+        {
+            string sessionId = "abc123";
+            var model = new SignUpModel("@test", "test test");
+            var problemList = new Dictionary<string, string[]>
+            {
+                {"Username", new[]{"Invalid characters"}},
+                {"Password", new[]{"Invalid characters"}},
+            };
+            var result = new ValidationProblemModel(
+                    Type: "Bad Request",
+                    Title: "Validation Failed",
+                    Status: 400,
+                    Detail: "Invalid values provided",
+                    Errors: problemList);
+            _messageHandlerMock
+                .Protected()
+                .Setup<Task<HttpResponseMessage>>("SendAsync",
+                        ItExpr.IsAny<HttpRequestMessage>(),
+                        ItExpr.IsAny<CancellationToken>())
+                .Returns(Task.FromResult(new HttpResponseMessage()
+                        {
+                            StatusCode = HttpStatusCode.BadRequest,
+                            Content = JsonContent.Create(result),
+                        }))
+                .Verifiable();
+            IUserApiService userApi = new UserApiService(
+                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)},
+                    _repositoryMock.Object);
+
+            ProblemModel<UserModel> userSignUp = await userApi.SignUpAsync(sessionId, model);
+
+            Assert.True(userSignUp.HasErrors);
+            Assert.AreEqual(problemList, userSignUp.Errors);
+        }
     }
 
     [TestFixture]
@@ -128,6 +164,7 @@ public class UserApiServiceTests
                         Times.Once());
 
         }
+
     }
 
     [TestFixture]
@@ -222,6 +259,59 @@ public class UserApiServiceTests
             Assert.AreEqual(updateModel, sentModel);
         }
 
+        [Test]
+        public async Task TestUpdateUserBadRequest()
+        {
+            string sessionId = "abc123";
+            string jwt = "access";
+            string refresh = "refresh";
+            var model = new UpdateModel("@test", "test test");
+            var problemList = new Dictionary<string, string[]>
+            {
+                {"Username", new[]{"Invalid characters"}},
+                {"Password", new[]{"Invalid characters"}},
+            };
+            var result = new ValidationProblemModel(
+                    Type: "Bad Request",
+                    Title: "Validation Failed",
+                    Status: 400,
+                    Detail: "Invalid values provided",
+                    Errors: problemList);
+            HttpRequestMessage sent = null!;
+            _messageHandlerMock
+                .Protected()
+                .Setup<Task<HttpResponseMessage>>("SendAsync",
+                        ItExpr.IsAny<HttpRequestMessage>(),
+                        ItExpr.IsAny<CancellationToken>())
+                .Callback((HttpRequestMessage request, CancellationToken token)
+                        => sent = request)
+                .Returns(Task.FromResult(new HttpResponseMessage()
+                        {
+                            StatusCode = HttpStatusCode.BadRequest,
+                            Content = JsonContent.Create(result),
+                        }))
+                .Verifiable();
+            _repositoryMock
+                .Setup(x => x.GetTokensAsync(sessionId))
+                .ReturnsAsync(new UserTokensModel(jwt, refresh));
+            IUserApiService userApi = new UserApiService(
+                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)},
+                    _repositoryMock.Object);
+
+            ProblemModel<UserModel> userUpdate = await userApi.UpdateUserAsync(sessionId, model);
+
+            Assert.True(userUpdate.HasErrors);
+            Assert.AreEqual(problemList, userUpdate.Errors);
+            Assert.NotNull(sent);
+            Assert.AreEqual(HttpMethod.Put, sent.Method);
+            Assert.AreEqual(new Uri(_baseAddress), sent.RequestUri);
+            JsonContent? json = sent.Content as JsonContent;
+            Assert.NotNull(json);
+            UpdateModel? sentModel = await json!.ReadFromJsonAsync<UpdateModel>();
+            Assert.NotNull(sentModel);
+            Assert.AreEqual(model, sentModel);
+        }
+
     }
 
     [TestFixture]
@@ -254,8 +344,9 @@ public class UserApiServiceTests
                     new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)},
                     _repositoryMock.Object);
 
-            await userApi.DeleteUserAsync(sessionId, deleteModel);
+            ProblemModel deleteUser = await userApi.DeleteUserAsync(sessionId, deleteModel);
 
+            Assert.False(deleteUser.HasErrors);
             Assert.NotNull(sent);
             Assert.AreEqual(HttpMethod.Delete, sent.Method);
             Assert.AreEqual(new Uri(_baseAddress), sent.RequestUri);
@@ -266,7 +357,6 @@ public class UserApiServiceTests
             Assert.NotNull(sentModel);
             Assert.AreEqual(deleteModel, sentModel);
             _repositoryMock.Verify(x => x.DeleteTokensAsync(sessionId), Times.Once());
-
         }
 
     }
