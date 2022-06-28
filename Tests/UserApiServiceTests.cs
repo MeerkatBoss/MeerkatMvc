@@ -13,11 +13,13 @@ public class UserApiServiceTests
 {
     protected readonly Mock<HttpMessageHandler> _messageHandlerMock;
     protected readonly Mock<ITokensRepository> _repositoryMock;
+    protected readonly string _baseAddress;
 
     public UserApiServiceTests()
     {
         _messageHandlerMock = new();
         _repositoryMock = new();
+        _baseAddress = "http://test.com/api/user/";
     }
 
     [TearDown]
@@ -55,7 +57,7 @@ public class UserApiServiceTests
                         }))
                 .Verifiable();
             IUserApiService userApi = new UserApiService(
-                    new HttpClient(_messageHandlerMock.Object),
+                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)},
                     _repositoryMock.Object);
 
             ProblemModel<LoginResultModel> userSignUp = await userApi.SignUp(sessionId, model);
@@ -64,6 +66,7 @@ public class UserApiServiceTests
             Assert.False(userSignUp.HasErrors);
             Assert.NotNull(sent);
             Assert.AreEqual(HttpMethod.Post, sent.Method);
+            Assert.AreEqual(new Uri(_baseAddress + "sign_up"), sent.RequestUri);
             JsonContent? json = sent.Content as JsonContent;
             Assert.NotNull(json);
             SignUpModel? sentModel = await json!.ReadFromJsonAsync<SignUpModel>();
@@ -104,7 +107,7 @@ public class UserApiServiceTests
                         }))
                 .Verifiable();
             IUserApiService userApi = new UserApiService(
-                    new HttpClient(_messageHandlerMock.Object),
+                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)},
                     _repositoryMock.Object);
 
             ProblemModel<LoginResultModel> userLogIn = await userApi.LogIn(sessionId, model);
@@ -113,6 +116,7 @@ public class UserApiServiceTests
             Assert.False(userLogIn.HasErrors);
             Assert.NotNull(sent);
             Assert.AreEqual(HttpMethod.Post, sent.Method);
+            Assert.AreEqual(new Uri(_baseAddress + "log_in"), sent.RequestUri);
             JsonContent? json = sent.Content as JsonContent;
             Assert.NotNull(json);
             LoginModel? sentModel = await json!.ReadFromJsonAsync<LoginModel>();
@@ -153,7 +157,7 @@ public class UserApiServiceTests
                 .Setup(x => x.GetTokensAsync(sessionId))
                 .ReturnsAsync(new UserTokensModel(jwt, refresh));
             IUserApiService userApi = new UserApiService(
-                    new HttpClient(_messageHandlerMock.Object),
+                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)},
                     _repositoryMock.Object);
 
             ProblemModel<UserModel> userGet = await userApi.GetUser(sessionId);
@@ -162,6 +166,7 @@ public class UserApiServiceTests
             Assert.False(userGet.HasErrors);
             Assert.NotNull(sent);
             Assert.AreEqual(HttpMethod.Get, sent.Method);
+            Assert.AreEqual(new Uri(_baseAddress), sent.RequestUri);
             Assert.AreEqual($"Bearer: {jwt}", sent.Headers.Authorization);
         }
 
@@ -198,7 +203,7 @@ public class UserApiServiceTests
                 .Setup(x => x.GetTokensAsync(sessionId))
                 .ReturnsAsync(new UserTokensModel(jwt, refresh));
             IUserApiService userApi = new UserApiService(
-                    new HttpClient(_messageHandlerMock.Object),
+                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)},
                     _repositoryMock.Object);
 
             ProblemModel<UserModel> userUpdate = await userApi.UpdateUser(sessionId, updateModel);
@@ -207,6 +212,7 @@ public class UserApiServiceTests
             Assert.False(userUpdate.HasErrors);
             Assert.NotNull(sent);
             Assert.AreEqual(HttpMethod.Put, sent.Method);
+            Assert.AreEqual(new Uri(_baseAddress), sent.RequestUri);
             Assert.AreEqual($"Bearer: {jwt}", sent.Headers.Authorization);
             JsonContent? json = sent.Content as JsonContent;
             Assert.NotNull(json);
@@ -244,13 +250,14 @@ public class UserApiServiceTests
                 .Setup(x => x.GetTokensAsync(sessionId))
                 .ReturnsAsync(new UserTokensModel(jwt, refresh));
             IUserApiService userApi = new UserApiService(
-                    new HttpClient(_messageHandlerMock.Object),
+                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)},
                     _repositoryMock.Object);
 
             await userApi.DeleteUser(sessionId, deleteModel);
 
             Assert.NotNull(sent);
-            Assert.AreEqual(HttpMethod.Put, sent.Method);
+            Assert.AreEqual(HttpMethod.Delete, sent.Method);
+            Assert.AreEqual(new Uri(_baseAddress), sent.RequestUri);
             Assert.AreEqual($"Bearer: {jwt}", sent.Headers.Authorization);
             JsonContent? json = sent.Content as JsonContent;
             Assert.NotNull(json);
