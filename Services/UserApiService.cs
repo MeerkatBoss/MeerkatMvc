@@ -7,9 +7,9 @@ public class UserApiService : IUserApiService
 {
     private readonly HttpClient _client;
     private const string SERVER_ERROR = "Something went wrong. Try again later.";
-    private const string LOGIN_FAILED = "Wrong username or password.";
-    private const string WRONG_PASSWORD = "Wrong password.";
-    private const string NOT_FOUND = "User does not exist.";
+    public const string LOGIN_FAILED = "Wrong username or password.";
+    public const string WRONG_PASSWORD = "Wrong password.";
+    public const string NOT_FOUND = "User does not exist.";
 
     public UserApiService(HttpClient client)
     {

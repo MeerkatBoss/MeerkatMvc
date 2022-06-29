@@ -169,6 +169,30 @@ public class UserApiServiceTests
                 .Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.Once());
         }
 
+        [Test]
+        public async Task TestLogInFailed()
+        {
+            var model = new LoginModel("test", "testtest");
+            _messageHandlerMock
+                .Protected()
+                .Setup<Task<HttpResponseMessage>>("SendAsync",
+                        ItExpr.IsAny<HttpRequestMessage>(),
+                        ItExpr.IsAny<CancellationToken>())
+                .Returns(Task.FromResult(new HttpResponseMessage()
+                        {
+                            StatusCode = HttpStatusCode.Unauthorized
+                        }))
+                .Verifiable();
+            IUserApiService userApi = new UserApiService(
+                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)});
+
+            ProblemModel<UserModel> userLogIn = await userApi.LogInAsync(_sessionMock.Object, model);
+
+            Assert.True(userLogIn.HasErrors);
+            Assert.AreEqual(1, userLogIn.Errors);
+            Assert.AreEqual(userLogIn.Errors["Detail"], new[] {UserApiService.LOGIN_FAILED});
+        }
+
     }
 
     [TestFixture]
@@ -313,6 +337,29 @@ public class UserApiServiceTests
                 .Verify(x => x.Set("Username", It.IsAny<byte[]>()), Times.Never());
         }
 
+        [Test]
+        public async Task TestUpdateUserWrongPassword()
+        {
+            var model = new UpdateModel(OldPassword: "testtest", Username: "test");
+            _messageHandlerMock
+                .Protected()
+                .Setup<Task<HttpResponseMessage>>("SendAsync",
+                        ItExpr.IsAny<HttpRequestMessage>(),
+                        ItExpr.IsAny<CancellationToken>())
+                .Returns(Task.FromResult(new HttpResponseMessage()
+                        {
+                            StatusCode = HttpStatusCode.Unauthorized
+                        }))
+                .Verifiable();
+            IUserApiService userApi = new UserApiService(
+                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)});
+
+            ProblemModel<UserModel> userUpdate = await userApi.UpdateUserAsync(_sessionMock.Object, model);
+
+            Assert.True(userUpdate.HasErrors);
+            Assert.AreEqual(1, userUpdate.Errors);
+            Assert.AreEqual(userUpdate.Errors["Detail"], new[] {UserApiService.WRONG_PASSWORD});
+        }
     }
 
     [TestFixture]
@@ -360,6 +407,29 @@ public class UserApiServiceTests
                 .Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.Once());
         }
 
+        [Test]
+        public async Task TestDeleteUserWrongPassword()
+        {
+            var model = new DeleteModel("testtest");
+            _messageHandlerMock
+                .Protected()
+                .Setup<Task<HttpResponseMessage>>("SendAsync",
+                        ItExpr.IsAny<HttpRequestMessage>(),
+                        ItExpr.IsAny<CancellationToken>())
+                .Returns(Task.FromResult(new HttpResponseMessage()
+                        {
+                            StatusCode = HttpStatusCode.Unauthorized
+                        }))
+                .Verifiable();
+            IUserApiService userApi = new UserApiService(
+                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)});
+
+            ProblemModel userDelete = await userApi.DeleteUserAsync(_sessionMock.Object, model);
+
+            Assert.True(userDelete.HasErrors);
+            Assert.AreEqual(1, userDelete.Errors);
+            Assert.AreEqual(userDelete.Errors["Detail"], new[] {UserApiService.WRONG_PASSWORD});
+        }
     }
 
 }
