@@ -63,8 +63,16 @@ public class UserApiService : IUserApiService
         request.Headers.Authorization = new("Bearer", jwt);
         HttpResponseMessage response = await _client.SendAsync(request);
         var json = response.Content as JsonContent;
-        UserModel? result = await json!.ReadFromJsonAsync<UserModel>();
-        return result!;
+        if (response.IsSuccessStatusCode)
+        {
+            UserModel? result = await json!.ReadFromJsonAsync<UserModel>();
+            return result!;
+        }
+        return response.StatusCode switch
+        {
+            HttpStatusCode.NotFound => new (NOT_FOUND),
+            _ => new (SERVER_ERROR)
+        };
     }
 
     public async Task<ProblemModel<UserModel>> UpdateUserAsync(ISession session, UpdateModel model)
@@ -108,6 +116,7 @@ public class UserApiService : IUserApiService
         return response.StatusCode switch
         {
             HttpStatusCode.Unauthorized => new (WRONG_PASSWORD),
+            HttpStatusCode.NotFound => new (NOT_FOUND),
             _ => new (SERVER_ERROR)
         };
     }
