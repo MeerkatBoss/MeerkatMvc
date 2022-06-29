@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Text;
 using MeerkatMvc.Models;
-using MeerkatMvc.Repositories;
 using MeerkatMvc.Services;
 using Moq;
 using Moq.Protected;
@@ -13,13 +13,13 @@ namespace MeerkatMvc.Tests;
 public class UserApiServiceTests
 {
     protected readonly Mock<HttpMessageHandler> _messageHandlerMock;
-    protected readonly Mock<ITokensRepository> _repositoryMock;
+    protected readonly Mock<ISession> _sessionMock;
     protected readonly string _baseAddress;
 
     public UserApiServiceTests()
     {
         _messageHandlerMock = new();
-        _repositoryMock = new();
+        _sessionMock = new();
         _baseAddress = "http://test.com/api/user/";
     }
 
@@ -27,7 +27,7 @@ public class UserApiServiceTests
     public void ClearMocks()
     {
         _messageHandlerMock.Reset();
-        _repositoryMock.Reset();
+        _sessionMock.Reset();
     }
 
     [TestFixture]
@@ -36,7 +36,6 @@ public class UserApiServiceTests
         [Test]
         public async Task TestSignUp()
         {
-            string sessionId = "abc123";
             string jwt = "access";
             string refresh = "refresh";
             var model = new SignUpModel("test", "testtest");
@@ -58,10 +57,9 @@ public class UserApiServiceTests
                         }))
                 .Verifiable();
             IUserApiService userApi = new UserApiService(
-                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)},
-                    _repositoryMock.Object);
+                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)});
 
-            ProblemModel<UserModel> userSignUp = await userApi.SignUpAsync(sessionId, model);
+            ProblemModel<UserModel> userSignUp = await userApi.SignUpAsync(_sessionMock.Object, model);
 
             Assert.AreEqual(result.User, userSignUp.Model);
             Assert.False(userSignUp.HasErrors);
@@ -73,15 +71,19 @@ public class UserApiServiceTests
             SignUpModel? sentModel = await json!.ReadFromJsonAsync<SignUpModel>();
             Assert.NotNull(sentModel);
             Assert.AreEqual(model, sentModel);
-            _repositoryMock
-                .Verify(x => x.AddTokensAsync(sessionId, new(jwt, refresh)),
-                        Times.Once());
+            _sessionMock
+                .Verify(x => x.Set("AccessToken", Encoding.UTF8.GetBytes(jwt)), Times.Once());
+            _sessionMock
+                .Verify(x => x.Set("RefreshToken", Encoding.UTF8.GetBytes(refresh)), Times.Once());
+            _sessionMock
+                .Verify(x => x.Set("Username", Encoding.UTF8.GetBytes(model.Username)), Times.Once());
+            _sessionMock
+                .Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.Once());
         }
 
         [Test]
         public async Task TestSignUpBadRequest()
         {
-            string sessionId = "abc123";
             var model = new SignUpModel("@test", "test test");
             var problemList = new Dictionary<string, string[]>
             {
@@ -106,14 +108,14 @@ public class UserApiServiceTests
                         }))
                 .Verifiable();
             IUserApiService userApi = new UserApiService(
-                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)},
-                    _repositoryMock.Object);
+                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)});
 
-            ProblemModel<UserModel> userSignUp = await userApi.SignUpAsync(sessionId, model);
+            ProblemModel<UserModel> userSignUp = await userApi.SignUpAsync(_sessionMock.Object, model);
 
             Assert.True(userSignUp.HasErrors);
             Assert.AreEqual(problemList, userSignUp.Errors);
         }
+
     }
 
     [TestFixture]
@@ -124,7 +126,6 @@ public class UserApiServiceTests
         {
             string jwt = "access";
             string refresh = "refresh";
-            string sessionId = "abc123";
             var model = new LoginModel("test", "testtest");
             var result = new LoginResultModel(
                     jwt, refresh,
@@ -144,10 +145,9 @@ public class UserApiServiceTests
                         }))
                 .Verifiable();
             IUserApiService userApi = new UserApiService(
-                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)},
-                    _repositoryMock.Object);
+                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)});
 
-            ProblemModel<UserModel> userLogIn = await userApi.LogInAsync(sessionId, model);
+            ProblemModel<UserModel> userLogIn = await userApi.LogInAsync(_sessionMock.Object, model);
 
             Assert.AreEqual(result.User, userLogIn.Model);
             Assert.False(userLogIn.HasErrors);
@@ -159,10 +159,14 @@ public class UserApiServiceTests
             LoginModel? sentModel = await json!.ReadFromJsonAsync<LoginModel>();
             Assert.NotNull(sentModel);
             Assert.AreEqual(model, sentModel);
-            _repositoryMock
-                .Verify(x => x.AddTokensAsync(sessionId, new(jwt, refresh)),
-                        Times.Once());
-
+            _sessionMock
+                .Verify(x => x.Set("AccessToken", Encoding.UTF8.GetBytes(jwt)), Times.Once());
+            _sessionMock
+                .Verify(x => x.Set("RefreshToken", Encoding.UTF8.GetBytes(refresh)), Times.Once());
+            _sessionMock
+                .Verify(x => x.Set("Username", Encoding.UTF8.GetBytes(model.Login)), Times.Once());
+            _sessionMock
+                .Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.Once());
         }
 
     }
@@ -173,9 +177,7 @@ public class UserApiServiceTests
         [Test]
         public async Task TestGetUser()
         {
-            string sessionId = "abc123";
             string jwt = "access";
-            string refresh = "refresh";
             var result = new UserModel(1, "test");
             HttpRequestMessage sent = null!;
             _messageHandlerMock
@@ -191,14 +193,13 @@ public class UserApiServiceTests
                             Content = JsonContent.Create(result),
                         }))
                 .Verifiable();
-            _repositoryMock
-                .Setup(x => x.GetTokensAsync(sessionId))
-                .ReturnsAsync(new UserTokensModel(jwt, refresh));
+            byte[] jwtBytes = Encoding.UTF8.GetBytes(jwt);
+            _sessionMock
+                .Setup(x => x.TryGetValue("AccessToken", out jwtBytes!));
             IUserApiService userApi = new UserApiService(
-                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)},
-                    _repositoryMock.Object);
+                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)});
 
-            ProblemModel<UserModel> userGet = await userApi.GetUserAsync(sessionId);
+            ProblemModel<UserModel> userGet = await userApi.GetUserAsync(_sessionMock.Object);
 
             Assert.AreEqual(result, userGet.Model);
             Assert.False(userGet.HasErrors);
@@ -216,9 +217,7 @@ public class UserApiServiceTests
         [Test]
         public async Task TestUpdateUser()
         {
-            string sessionId = "abc123";
             string jwt = "access";
-            string refresh = "refresh";
             var result = new UserModel(1, "test_new");
             var updateModel = new UpdateModel(
                     OldPassword: "testtest",
@@ -237,14 +236,13 @@ public class UserApiServiceTests
                             Content = JsonContent.Create(result),
                         }))
                 .Verifiable();
-            _repositoryMock
-                .Setup(x => x.GetTokensAsync(sessionId))
-                .ReturnsAsync(new UserTokensModel(jwt, refresh));
+            byte[] jwtBytes = Encoding.UTF8.GetBytes(jwt);
+            _sessionMock
+                .Setup(x => x.TryGetValue("AccessToken", out jwtBytes!));
             IUserApiService userApi = new UserApiService(
-                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)},
-                    _repositoryMock.Object);
+                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)});
 
-            ProblemModel<UserModel> userUpdate = await userApi.UpdateUserAsync(sessionId, updateModel);
+            ProblemModel<UserModel> userUpdate = await userApi.UpdateUserAsync(_sessionMock.Object, updateModel);
 
             Assert.AreEqual(result, userUpdate.Model);
             Assert.False(userUpdate.HasErrors);
@@ -257,14 +255,16 @@ public class UserApiServiceTests
             UpdateModel? sentModel = await json!.ReadFromJsonAsync<UpdateModel>();
             Assert.NotNull(sentModel);
             Assert.AreEqual(updateModel, sentModel);
+            _sessionMock
+                .Verify(x => x.Set("Username", Encoding.UTF8.GetBytes(updateModel.Username!)), Times.Once());
+            _sessionMock
+                .Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.Once());
         }
 
         [Test]
         public async Task TestUpdateUserBadRequest()
         {
-            string sessionId = "abc123";
             string jwt = "access";
-            string refresh = "refresh";
             var model = new UpdateModel("@test", "test test");
             var problemList = new Dictionary<string, string[]>
             {
@@ -291,14 +291,13 @@ public class UserApiServiceTests
                             Content = JsonContent.Create(result),
                         }))
                 .Verifiable();
-            _repositoryMock
-                .Setup(x => x.GetTokensAsync(sessionId))
-                .ReturnsAsync(new UserTokensModel(jwt, refresh));
+            byte[] jwtBytes = Encoding.UTF8.GetBytes(jwt);
+            _sessionMock
+                .Setup(x => x.TryGetValue("AccessToken", out jwtBytes!));
             IUserApiService userApi = new UserApiService(
-                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)},
-                    _repositoryMock.Object);
+                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)});
 
-            ProblemModel<UserModel> userUpdate = await userApi.UpdateUserAsync(sessionId, model);
+            ProblemModel<UserModel> userUpdate = await userApi.UpdateUserAsync(_sessionMock.Object, model);
 
             Assert.True(userUpdate.HasErrors);
             Assert.AreEqual(problemList, userUpdate.Errors);
@@ -310,6 +309,8 @@ public class UserApiServiceTests
             UpdateModel? sentModel = await json!.ReadFromJsonAsync<UpdateModel>();
             Assert.NotNull(sentModel);
             Assert.AreEqual(model, sentModel);
+            _sessionMock
+                .Verify(x => x.Set("Username", It.IsAny<byte[]>()), Times.Never());
         }
 
     }
@@ -320,9 +321,7 @@ public class UserApiServiceTests
         [Test]
         public async Task TestDeleteUser()
         {
-            string sessionId = "abc123";
             string jwt = "access";
-            string refresh = "refresh";
             var deleteModel = new DeleteModel("testtest");
             HttpRequestMessage sent = null!;
             _messageHandlerMock
@@ -337,14 +336,13 @@ public class UserApiServiceTests
                             StatusCode = HttpStatusCode.NoContent
                         }))
                 .Verifiable();
-            _repositoryMock
-                .Setup(x => x.GetTokensAsync(sessionId))
-                .ReturnsAsync(new UserTokensModel(jwt, refresh));
+            byte[] jwtBytes = Encoding.UTF8.GetBytes(jwt);
+            _sessionMock
+                .Setup(x => x.TryGetValue("AccessToken", out jwtBytes!));
             IUserApiService userApi = new UserApiService(
-                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)},
-                    _repositoryMock.Object);
+                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)});
 
-            ProblemModel deleteUser = await userApi.DeleteUserAsync(sessionId, deleteModel);
+            ProblemModel deleteUser = await userApi.DeleteUserAsync(_sessionMock.Object, deleteModel);
 
             Assert.False(deleteUser.HasErrors);
             Assert.NotNull(sent);
@@ -356,7 +354,10 @@ public class UserApiServiceTests
             DeleteModel? sentModel = await json!.ReadFromJsonAsync<DeleteModel>();
             Assert.NotNull(sentModel);
             Assert.AreEqual(deleteModel, sentModel);
-            _repositoryMock.Verify(x => x.DeleteTokensAsync(sessionId), Times.Once());
+            _sessionMock
+                .Verify(x => x.Clear(), Times.Once());
+            _sessionMock
+                .Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.Once());
         }
 
     }
