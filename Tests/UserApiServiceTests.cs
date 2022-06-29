@@ -189,7 +189,7 @@ public class UserApiServiceTests
             ProblemModel<UserModel> userLogIn = await userApi.LogInAsync(_sessionMock.Object, model);
 
             Assert.True(userLogIn.HasErrors);
-            Assert.AreEqual(1, userLogIn.Errors);
+            Assert.AreEqual(1, userLogIn.Errors.Count());
             Assert.AreEqual(userLogIn.Errors["Detail"], new[] {UserApiService.LOGIN_FAILED});
         }
 
@@ -357,7 +357,7 @@ public class UserApiServiceTests
             ProblemModel<UserModel> userUpdate = await userApi.UpdateUserAsync(_sessionMock.Object, model);
 
             Assert.True(userUpdate.HasErrors);
-            Assert.AreEqual(1, userUpdate.Errors);
+            Assert.AreEqual(1, userUpdate.Errors.Count());
             Assert.AreEqual(userUpdate.Errors["Detail"], new[] {UserApiService.WRONG_PASSWORD});
         }
     }
@@ -427,7 +427,7 @@ public class UserApiServiceTests
             ProblemModel userDelete = await userApi.DeleteUserAsync(_sessionMock.Object, model);
 
             Assert.True(userDelete.HasErrors);
-            Assert.AreEqual(1, userDelete.Errors);
+            Assert.AreEqual(1, userDelete.Errors.Count());
             Assert.AreEqual(userDelete.Errors["Detail"], new[] {UserApiService.WRONG_PASSWORD});
         }
     }

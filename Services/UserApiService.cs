@@ -40,12 +40,20 @@ public class UserApiService : IUserApiService
     {
         HttpResponseMessage response = await _client.PostAsJsonAsync("log_in", credentials);
         var json = response.Content as JsonContent;
-        LoginResultModel? result = await json!.ReadFromJsonAsync<LoginResultModel>();
-        session.SetString("AccessToken", result!.AccessToken);
-        session.SetString("RefreshToken", result.RefreshToken);
-        session.SetString("Username", result.User.Username);
-        await session.CommitAsync();
-        return result!.User;
+        if (response.IsSuccessStatusCode)
+        {
+            LoginResultModel? result = await json!.ReadFromJsonAsync<LoginResultModel>();
+            session.SetString("AccessToken", result!.AccessToken);
+            session.SetString("RefreshToken", result.RefreshToken);
+            session.SetString("Username", result.User.Username);
+            await session.CommitAsync();
+            return result!.User;
+        }
+        return response.StatusCode switch
+        {
+            HttpStatusCode.Unauthorized => new (LOGIN_FAILED),
+            _ => new (SERVER_ERROR)
+        };
     }
 
     public async Task<ProblemModel<UserModel>> GetUserAsync(ISession session)
@@ -91,9 +99,17 @@ public class UserApiService : IUserApiService
         request.Headers.Authorization = new("Bearer", jwt);
         request.Content = JsonContent.Create(model);
         HttpResponseMessage response = await _client.SendAsync(request);
-        session.Clear();
-        await session.CommitAsync();
-        return new();
+        if (response.IsSuccessStatusCode)
+        {
+            session.Clear();
+            await session.CommitAsync();
+            return new();
+        }
+        return response.StatusCode switch
+        {
+            HttpStatusCode.Unauthorized => new (WRONG_PASSWORD),
+            _ => new (SERVER_ERROR)
+        };
     }
 
     public async Task<ProblemModel> ParseValidationProblem(JsonContent json)

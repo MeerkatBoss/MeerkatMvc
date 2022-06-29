@@ -4,7 +4,7 @@ public class ProblemModel<T> where T : class
 {
     public T? Model {get; init;}
     public IDictionary<string, string[]> Errors {get; init;}
-    public bool HasErrors => Errors.Count() > 1;
+    public bool HasErrors => Errors.Count() > 0;
 
     public ProblemModel(T correct)
     {
@@ -40,7 +40,7 @@ public class ProblemModel<T> where T : class
 public class ProblemModel
 {
     public IDictionary<string, string[]> Errors {get; init;}
-    public bool HasErrors => Errors.Count() > 1;
+    public bool HasErrors => Errors.Count() > 0;
 
     public ProblemModel()
     {
