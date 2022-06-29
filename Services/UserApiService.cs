@@ -23,6 +23,10 @@ public class UserApiService : IUserApiService
         if (response.IsSuccessStatusCode)
         {
             LoginResultModel? result = await json!.ReadFromJsonAsync<LoginResultModel>();
+            session.SetString("AccessToken", result!.AccessToken);
+            session.SetString("RefreshToken", result.RefreshToken);
+            session.SetString("Username", result.User.Username);
+            await session.CommitAsync();
             return result!.User;
         }
         return response.StatusCode switch
@@ -37,13 +41,18 @@ public class UserApiService : IUserApiService
         HttpResponseMessage response = await _client.PostAsJsonAsync("log_in", credentials);
         var json = response.Content as JsonContent;
         LoginResultModel? result = await json!.ReadFromJsonAsync<LoginResultModel>();
+        session.SetString("AccessToken", result!.AccessToken);
+        session.SetString("RefreshToken", result.RefreshToken);
+        session.SetString("Username", result.User.Username);
+        await session.CommitAsync();
         return result!.User;
     }
 
     public async Task<ProblemModel<UserModel>> GetUserAsync(ISession session)
     {
+        string jwt = session.GetString("AccessToken")!;
         var request = new HttpRequestMessage(HttpMethod.Get, "");
-        request.Headers.Authorization = new("Bearer", String.Empty);
+        request.Headers.Authorization = new("Bearer", jwt);
         HttpResponseMessage response = await _client.SendAsync(request);
         var json = response.Content as JsonContent;
         UserModel? result = await json!.ReadFromJsonAsync<UserModel>();
@@ -52,14 +61,17 @@ public class UserApiService : IUserApiService
 
     public async Task<ProblemModel<UserModel>> UpdateUserAsync(ISession session, UpdateModel model)
     {
+        string jwt = session.GetString("AccessToken")!;
         var request = new HttpRequestMessage(HttpMethod.Put, "");
-        request.Headers.Authorization = new("Bearer", String.Empty);
+        request.Headers.Authorization = new("Bearer", jwt);
         request.Content = JsonContent.Create(model);
         HttpResponseMessage response = await _client.SendAsync(request);
         var json = response.Content as JsonContent;
         if (response.IsSuccessStatusCode)
         {
             UserModel? result = await json!.ReadFromJsonAsync<UserModel>();
+            session.SetString("Username", result!.Username);
+            await session.CommitAsync();
             return result!;
         }
         return response.StatusCode switch
@@ -74,11 +86,13 @@ public class UserApiService : IUserApiService
 
     public async Task<ProblemModel> DeleteUserAsync(ISession session, DeleteModel model)
     {
-        HttpResponseMessage response;
+        string jwt = session.GetString("AccessToken")!;
         var request = new HttpRequestMessage(HttpMethod.Delete, "");
-        request.Headers.Authorization = new("Bearer", String.Empty);
+        request.Headers.Authorization = new("Bearer", jwt);
         request.Content = JsonContent.Create(model);
-        response = await _client.SendAsync(request);
+        HttpResponseMessage response = await _client.SendAsync(request);
+        session.Clear();
+        await session.CommitAsync();
         return new();
     }
 
