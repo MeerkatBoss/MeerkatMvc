@@ -68,6 +68,11 @@ public class UserApiService : IUserApiService
             UserModel? result = await json!.ReadFromJsonAsync<UserModel>();
             return result!;
         }
+        if (response.Headers.Contains("X-Token-Expired"))
+        {
+            await RefreshTokensAsync(session);
+            return await GetUserAsync(session);
+        }
         return response.StatusCode switch
         {
             HttpStatusCode.NotFound => new (NOT_FOUND),
@@ -89,6 +94,11 @@ public class UserApiService : IUserApiService
             session.SetString("Username", result!.Username);
             await session.CommitAsync();
             return result!;
+        }
+        if (response.Headers.Contains("X-Token-Expired"))
+        {
+            await RefreshTokensAsync(session);
+            return await UpdateUserAsync(session, model);
         }
         return response.StatusCode switch
         {
@@ -113,6 +123,11 @@ public class UserApiService : IUserApiService
             await session.CommitAsync();
             return new();
         }
+        if (response.Headers.Contains("X-Token-Expired"))
+        {
+            await RefreshTokensAsync(session);
+            return await DeleteUserAsync(session, model);
+        }
         return response.StatusCode switch
         {
             HttpStatusCode.Unauthorized => new (WRONG_PASSWORD),
@@ -126,5 +141,20 @@ public class UserApiService : IUserApiService
         var problem = await json.ReadFromJsonAsync<ValidationProblemModel>();
         return new(problem!);
     }
+
+    private async Task<RefreshModel> RefreshTokensAsync(ISession session)
+    {
+        RefreshModel oldTokens = new(
+                AccessToken: session.GetString("AccessToken")!,
+                RefreshToken: session.GetString("RefreshToken")!);
+        HttpResponseMessage response = await _client.PutAsJsonAsync("refresh", oldTokens);
+        JsonContent? json = response.Content as JsonContent;
+        RefreshModel? result = await json!.ReadFromJsonAsync<RefreshModel>();
+        session.SetString("AccessToken", result!.AccessToken);
+        session.SetString("RefreshToken", result!.RefreshToken);
+        await session.CommitAsync();
+        return result!;
+    }
+
 
 }

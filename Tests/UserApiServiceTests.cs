@@ -15,22 +15,14 @@ public class UserApiServiceTests
     private readonly Mock<HttpMessageHandler> _messageHandlerMock;
     private readonly Mock<ISession> _sessionMock;
     private readonly string _baseAddress;
-    private readonly HttpResponseMessage _successfulRefresh;
-    private readonly HttpResponseMessage _jwtExpired;
+    private HttpResponseMessage _successfulRefresh = null!;
+    private HttpResponseMessage _jwtExpired = null!;
 
     public UserApiServiceTests()
     {
         _messageHandlerMock = new();
         _sessionMock = new();
         _baseAddress = "http://test.com/api/user/";
-        _successfulRefresh = new()
-            {
-                StatusCode = HttpStatusCode.OK,
-                Content = JsonContent.Create(new {
-                        AccessToken = "new_jwt", RefreshToken = "new_refresh"})
-            };
-        _jwtExpired = new(HttpStatusCode.Unauthorized);
-        _jwtExpired.Headers.Add("X-Token-Expired", "true");
     }
 
 
@@ -39,6 +31,21 @@ public class UserApiServiceTests
     {
         _messageHandlerMock.Reset();
         _sessionMock.Reset();
+        _successfulRefresh.Dispose();
+        _jwtExpired.Dispose();
+    }
+
+    [SetUp]
+    public void PrepareRequests()
+    {
+        _successfulRefresh = new()
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = JsonContent.Create(new {
+                        AccessToken = "new_jwt", RefreshToken = "new_refresh"})
+            };
+        _jwtExpired = new(HttpStatusCode.Unauthorized);
+        _jwtExpired.Headers.Add("X-Token-Expired", "true");
     }
 
     [TestFixture]
@@ -305,7 +312,13 @@ public class UserApiServiceTests
                 .Verifiable();
             byte[] jwtBytes = Encoding.UTF8.GetBytes(jwt);
             _sessionMock
-                .Setup(x => x.TryGetValue("AccessToken", out jwtBytes!));
+                .Setup(x => x.TryGetValue("AccessToken", out jwtBytes!))
+                .Callback(() => ChangeOut(_sessionMock));
+            void ChangeOut(Mock<ISession> mock)
+            {
+                byte[] newBytes = Encoding.UTF8.GetBytes("new_jwt");
+                mock.Setup(x => x.TryGetValue("AccessToken", out newBytes!));
+            }
             IUserApiService userApi = new UserApiService(
                     new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)});
 
@@ -519,7 +532,13 @@ public class UserApiServiceTests
                 .Verifiable();
             byte[] jwtBytes = Encoding.UTF8.GetBytes(jwt);
             _sessionMock
-                .Setup(x => x.TryGetValue("AccessToken", out jwtBytes!));
+                .Setup(x => x.TryGetValue("AccessToken", out jwtBytes!))
+                .Callback(() => ChangeOut(_sessionMock));
+            void ChangeOut(Mock<ISession> mock)
+            {
+                byte[] newBytes = Encoding.UTF8.GetBytes("new_jwt");
+                mock.Setup(x => x.TryGetValue("AccessToken", out newBytes!));
+            }
             IUserApiService userApi = new UserApiService(
                     new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)});
 
@@ -530,9 +549,9 @@ public class UserApiServiceTests
             _sessionMock
                 .Verify(x => x.Set("AccessToken", Encoding.UTF8.GetBytes("new_jwt")), Times.Once);
             _sessionMock
-                .Verify(x => x.Set("RefreshToken", Encoding.UTF8.GetBytes("new_refresh")), Times.Once);
+                .Verify(x => x.Set("RefreshToken", Encoding.UTF8.GetBytes("new_refresh")), Times.AtLeastOnce);
             _sessionMock
-                .Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+                .Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.AtLeastOnce);
         }
     }
 
@@ -668,13 +687,19 @@ public class UserApiServiceTests
                                 return Task.FromResult(_jwtExpired);
                             return Task.FromResult(new HttpResponseMessage()
                                 {
-                                    StatusCode = HttpStatusCode.OK,
+                                    StatusCode = HttpStatusCode.NoContent,
                                 });
                         })
                 .Verifiable();
             byte[] jwtBytes = Encoding.UTF8.GetBytes(jwt);
             _sessionMock
-                .Setup(x => x.TryGetValue("AccessToken", out jwtBytes!));
+                .Setup(x => x.TryGetValue("AccessToken", out jwtBytes!))
+                .Callback(() => ChangeOut(_sessionMock));
+            void ChangeOut(Mock<ISession> mock)
+            {
+                byte[] newBytes = Encoding.UTF8.GetBytes("new_jwt");
+                mock.Setup(x => x.TryGetValue("AccessToken", out newBytes!));
+            }
             IUserApiService userApi = new UserApiService(
                     new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)});
 
@@ -686,7 +711,7 @@ public class UserApiServiceTests
             _sessionMock
                 .Verify(x => x.Set("RefreshToken", Encoding.UTF8.GetBytes("new_refresh")), Times.Once);
             _sessionMock
-                .Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+                .Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.AtLeastOnce);
         }
 
     }
