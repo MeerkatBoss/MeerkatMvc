@@ -12,16 +12,27 @@ namespace MeerkatMvc.Tests;
 [TestFixture]
 public class UserApiServiceTests
 {
-    protected readonly Mock<HttpMessageHandler> _messageHandlerMock;
-    protected readonly Mock<ISession> _sessionMock;
-    protected readonly string _baseAddress;
+    private readonly Mock<HttpMessageHandler> _messageHandlerMock;
+    private readonly Mock<ISession> _sessionMock;
+    private readonly string _baseAddress;
+    private readonly HttpResponseMessage _successfulRefresh;
+    private readonly HttpResponseMessage _jwtExpired;
 
     public UserApiServiceTests()
     {
         _messageHandlerMock = new();
         _sessionMock = new();
         _baseAddress = "http://test.com/api/user/";
+        _successfulRefresh = new()
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = JsonContent.Create(new {
+                        AccessToken = "new_jwt", RefreshToken = "new_refresh"})
+            };
+        _jwtExpired = new(HttpStatusCode.Unauthorized);
+        _jwtExpired.Headers.Add("X-Token-Expired", "true");
     }
+
 
     [TearDown]
     public void ClearMocks()
@@ -267,6 +278,48 @@ public class UserApiServiceTests
             Assert.AreEqual(1, userGet.Errors.Count());
             Assert.AreEqual(new[] {UserApiService.NOT_FOUND}, userGet.Errors["Detail"]);
         }
+
+        [Test]
+        public async Task TestGetUserTokenExpired()
+        {
+            string jwt = "access";
+            var result = new UserModel(1, "test");
+            _messageHandlerMock
+                .Protected()
+                .Setup<Task<HttpResponseMessage>>("SendAsync",
+                        ItExpr.IsAny<HttpRequestMessage>(),
+                        ItExpr.IsAny<CancellationToken>())
+                .Returns((HttpRequestMessage request, CancellationToken token) =>
+                        {
+                            if (request.RequestUri == new Uri(_baseAddress + "refresh")
+                                    && request.Method == HttpMethod.Put)
+                                return Task.FromResult(_successfulRefresh);
+                            if (request.Headers.Authorization?.Parameter == jwt)
+                                return Task.FromResult(_jwtExpired);
+                            return Task.FromResult(new HttpResponseMessage()
+                                {
+                                    StatusCode = HttpStatusCode.OK,
+                                    Content = JsonContent.Create(result),
+                                });
+                        })
+                .Verifiable();
+            byte[] jwtBytes = Encoding.UTF8.GetBytes(jwt);
+            _sessionMock
+                .Setup(x => x.TryGetValue("AccessToken", out jwtBytes!));
+            IUserApiService userApi = new UserApiService(
+                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)});
+
+            ProblemModel<UserModel> userGet = await userApi.GetUserAsync(_sessionMock.Object);
+
+            Assert.AreEqual(result, userGet.Model);
+            Assert.False(userGet.HasErrors);
+            _sessionMock
+                .Verify(x => x.Set("AccessToken", Encoding.UTF8.GetBytes("new_jwt")), Times.Once);
+            _sessionMock
+                .Verify(x => x.Set("RefreshToken", Encoding.UTF8.GetBytes("new_refresh")), Times.Once);
+            _sessionMock
+                .Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+        }
     }
 
     [TestFixture]
@@ -438,6 +491,49 @@ public class UserApiServiceTests
             _sessionMock
                 .Verify(x => x.Set("Username", It.IsAny<byte[]>()), Times.Never());
         }
+
+        [Test]
+        public async Task TestUpdateUserTokenExpired()
+        {
+            string jwt = "access";
+            var result = new UserModel(1, "test");
+            var model = new UpdateModel(OldPassword: "testtest", Username: "test");
+            _messageHandlerMock
+                .Protected()
+                .Setup<Task<HttpResponseMessage>>("SendAsync",
+                        ItExpr.IsAny<HttpRequestMessage>(),
+                        ItExpr.IsAny<CancellationToken>())
+                .Returns((HttpRequestMessage request, CancellationToken token) =>
+                        {
+                            if (request.RequestUri == new Uri(_baseAddress + "refresh")
+                                    && request.Method == HttpMethod.Put)
+                                return Task.FromResult(_successfulRefresh);
+                            if (request.Headers.Authorization?.Parameter == jwt)
+                                return Task.FromResult(_jwtExpired);
+                            return Task.FromResult(new HttpResponseMessage()
+                                {
+                                    StatusCode = HttpStatusCode.OK,
+                                    Content = JsonContent.Create(result),
+                                });
+                        })
+                .Verifiable();
+            byte[] jwtBytes = Encoding.UTF8.GetBytes(jwt);
+            _sessionMock
+                .Setup(x => x.TryGetValue("AccessToken", out jwtBytes!));
+            IUserApiService userApi = new UserApiService(
+                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)});
+
+            ProblemModel<UserModel> userUpdate = await userApi.UpdateUserAsync(_sessionMock.Object, model);
+
+            Assert.AreEqual(result, userUpdate.Model);
+            Assert.False(userUpdate.HasErrors);
+            _sessionMock
+                .Verify(x => x.Set("AccessToken", Encoding.UTF8.GetBytes("new_jwt")), Times.Once);
+            _sessionMock
+                .Verify(x => x.Set("RefreshToken", Encoding.UTF8.GetBytes("new_refresh")), Times.Once);
+            _sessionMock
+                .Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+        }
     }
 
     [TestFixture]
@@ -552,6 +648,47 @@ public class UserApiServiceTests
             _sessionMock
                 .Verify(x => x.Clear(), Times.Never());
         }
+
+        [Test]
+        public async Task TestDeleteUserTokenExpired()
+        {
+            string jwt = "access";
+            var model = new DeleteModel(Password: "testtest");
+            _messageHandlerMock
+                .Protected()
+                .Setup<Task<HttpResponseMessage>>("SendAsync",
+                        ItExpr.IsAny<HttpRequestMessage>(),
+                        ItExpr.IsAny<CancellationToken>())
+                .Returns((HttpRequestMessage request, CancellationToken token) =>
+                        {
+                            if (request.RequestUri == new Uri(_baseAddress + "refresh")
+                                    && request.Method == HttpMethod.Put)
+                                return Task.FromResult(_successfulRefresh);
+                            if (request.Headers.Authorization?.Parameter == jwt)
+                                return Task.FromResult(_jwtExpired);
+                            return Task.FromResult(new HttpResponseMessage()
+                                {
+                                    StatusCode = HttpStatusCode.OK,
+                                });
+                        })
+                .Verifiable();
+            byte[] jwtBytes = Encoding.UTF8.GetBytes(jwt);
+            _sessionMock
+                .Setup(x => x.TryGetValue("AccessToken", out jwtBytes!));
+            IUserApiService userApi = new UserApiService(
+                    new HttpClient(_messageHandlerMock.Object){BaseAddress = new Uri(_baseAddress)});
+
+            ProblemModel userGet = await userApi.DeleteUserAsync(_sessionMock.Object, model);
+
+            Assert.False(userGet.HasErrors);
+            _sessionMock
+                .Verify(x => x.Set("AccessToken", Encoding.UTF8.GetBytes("new_jwt")), Times.Once);
+            _sessionMock
+                .Verify(x => x.Set("RefreshToken", Encoding.UTF8.GetBytes("new_refresh")), Times.Once);
+            _sessionMock
+                .Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+        }
+
     }
 
 }
