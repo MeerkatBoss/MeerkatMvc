@@ -368,6 +368,8 @@ public class UserApiServiceTests
             AsyncTestDelegate getUser = async () => await userApi.GetUserAsync(_sessionMock.Object);
 
             Assert.ThrowsAsync<RefreshFailedException>(getUser);
+            _sessionMock
+                .Verify(x => x.Clear(), Times.Once());
         }
 
     }
@@ -617,6 +619,8 @@ public class UserApiServiceTests
             AsyncTestDelegate updateUser = async () => await userApi.UpdateUserAsync(_sessionMock.Object, model);
 
             Assert.ThrowsAsync<RefreshFailedException>(updateUser);
+            _sessionMock
+                .Verify(x => x.Clear(), Times.Once());
         }
     }
 
@@ -805,6 +809,8 @@ public class UserApiServiceTests
             AsyncTestDelegate deleteUser = async () => await userApi.DeleteUserAsync(_sessionMock.Object, model);
 
             Assert.ThrowsAsync<RefreshFailedException>(deleteUser);
+            _sessionMock
+                .Verify(x => x.Clear(), Times.Once());
         }
 
     }
