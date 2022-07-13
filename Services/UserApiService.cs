@@ -148,12 +148,18 @@ public class UserApiService : IUserApiService
                 AccessToken: session.GetString("AccessToken")!,
                 RefreshToken: session.GetString("RefreshToken")!);
         HttpResponseMessage response = await _client.PutAsJsonAsync("refresh", oldTokens);
-        JsonContent? json = response.Content as JsonContent;
-        RefreshModel? result = await json!.ReadFromJsonAsync<RefreshModel>();
-        session.SetString("AccessToken", result!.AccessToken);
-        session.SetString("RefreshToken", result!.RefreshToken);
+        if (response.IsSuccessStatusCode)
+        {
+            JsonContent? json = response.Content as JsonContent;
+            RefreshModel? result = await json!.ReadFromJsonAsync<RefreshModel>();
+            session.SetString("AccessToken", result!.AccessToken);
+            session.SetString("RefreshToken", result!.RefreshToken);
+            await session.CommitAsync();
+            return result!;
+        }
+        session.Clear();
         await session.CommitAsync();
-        return result!;
+        throw new RefreshFailedException("Refresh token has expired");
     }
 
 

@@ -370,6 +370,8 @@ public class UserApiServiceTests
             Assert.ThrowsAsync<RefreshFailedException>(getUser);
             _sessionMock
                 .Verify(x => x.Clear(), Times.Once());
+            _sessionMock
+                .Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.Once());
         }
 
     }
@@ -621,6 +623,8 @@ public class UserApiServiceTests
             Assert.ThrowsAsync<RefreshFailedException>(updateUser);
             _sessionMock
                 .Verify(x => x.Clear(), Times.Once());
+            _sessionMock
+                .Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.Once());
         }
     }
 
@@ -811,6 +815,8 @@ public class UserApiServiceTests
             Assert.ThrowsAsync<RefreshFailedException>(deleteUser);
             _sessionMock
                 .Verify(x => x.Clear(), Times.Once());
+            _sessionMock
+                .Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.Once());
         }
 
     }
